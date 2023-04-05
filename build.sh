@@ -89,6 +89,12 @@ setup_cloud_config() {
     exit 1
   fi
 
+  if [[ -z "${GIT_TOKEN}" ]]; then
+    echo "missing git token, exiting..."
+    exit 1
+  fi
+
+
   ssh-keygen -b 2048 -t rsa -f "${GUEST_NAME}" -P ""
   read -r public_key < <(cat "${GUEST_NAME}.pub")
   chmod 600 "${GUEST_NAME}"
