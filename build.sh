@@ -174,7 +174,7 @@ write_files:
       email = ${GIT_MAIL}
     [core]
       editor = vim
-    [url "https://${GIT_TOKEN}:x-oauth-basic@github.com"]
+    [url "https://${GIT_TOKEN}:x-oauth-basic@github.com/"]
       insteadOf = https://github.com/
   append: true
 - path: /root/.bash_profile
