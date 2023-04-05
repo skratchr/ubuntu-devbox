@@ -2,23 +2,32 @@
 
 set -eu
 
+# path details
 declare -r CACHE_DIR="${HOME}/.devbox-cache"
 declare -r DATA_DIR="${PWD}/_data"
 declare -r SCRIPT_DIR="${PWD}/_scripts"
 
-declare -r IMAGE_NAME="focal-server-cloudimg-amd64.img"
-declare -r IMAGE_SIZE="50G"
+# image details
+declare -r IMAGE_DISTRO="jammy"
+declare -r IMAGE_NAME="${IMAGE_DISTRO}-server-cloudimg-amd64.img"
+declare -r IMAGE_SIZE="100G"
 
-declare -r GO_VERSION="go1.19.2"
-declare -ir SSH_ACCESS_PORT="${SSH_ACCESS_PORT:-2222}"
-
+# VM details
 declare -r CPU="${CPU:-max}"
 declare -r ACCEL="${ACCEL:-hvf}"
 declare -ir CORES="${CORES:-4}"
 declare -ir MEMORY="$((CORES * 2048))"
+declare -ir SSH_ACCESS_PORT="${SSH_ACCESS_PORT:-2222}"
 
+# git details
 read -r GIT_USER < <(git config --global --get user.name); readonly GIT_USER
 read -r GIT_MAIL < <(git config --global --get user.email); readonly GIT_MAIL
+
+# dev environment details
+declare -r GO_VERSION="go1.20.3"
+
+
+
 
 setup_image() {
   mkdir -p "${CACHE_DIR}"
@@ -37,6 +46,9 @@ setup_image() {
     qemu-img resize "${DATA_DIR}/${IMAGE_NAME}" "${IMAGE_SIZE}"
   fi
 }
+
+
+
 
 setup_cloud_config() {
   cd "${DATA_DIR}" || exit 1
@@ -134,9 +146,17 @@ write_files:
       email = ${GIT_MAIL}
     [core]
       editor = vim
+    [url "https://${GIT_TOKEN}:x-oauth-basic@github.com"]
+      insteadOf = https://github.com/
   append: true
 - path: /root/.bash_profile
   content: |
+    export TERM="xterm-256color"
+    export EDITOR="vim"
+
+    alias vi="vim"
+    alias ls="ls -FGlAp --color"
+
     GOROOT=/usr/local/go
     GOPATH=/root/go
     GOBIN=\${GOPATH}/bin
@@ -149,6 +169,9 @@ EOF
 
   mkisofs -output cidata.iso -volid cidata -joliet -rock user-data meta-data
 }
+
+
+
 
 setup_scripts() {
   cat <<EOF > "${SCRIPT_DIR}/run.sh"
@@ -210,6 +233,9 @@ EOF
   chmod +x "${SCRIPT_DIR}/kill.sh"
 }
 
+
+
+
 main() {
   echo "* Checking dependencies..."
   for dep in mkisofs qemu-system-x86_64 qemu-img git pgrep; do
@@ -223,6 +249,12 @@ main() {
     declare -rg GUEST_NAME="${guest}"
   else
     declare -rg GUEST_NAME="${1:?"Missing required argument"}"
+  fi
+
+  if read -r git_token < <(grep "git-token:" "${DATA_DIR}/guest_info" 2>/dev/null | awk '{print $2}'); then
+    declare -rg GIT_TOKEN="${git_token}"
+  else
+    declare -rg GIT_TOKEN="${2:?"Missing required argument"}"
   fi
 
   mkdir -p "${DATA_DIR}"
@@ -262,6 +294,7 @@ cloud-init:
   label:        ${GUEST_NAME}
   git-user:     ${GIT_USER}
   git-mail:     ${GIT_MAIL}
+  git-token:    ${GIT_TOKEN}
 -
 ssh-config:
 ${GUEST_NAME}
@@ -270,7 +303,7 @@ ${GUEST_NAME}
   Port ${SSH_ACCESS_PORT}
   IdentitiesOnly yes
   StrictHostKeyChecking no
-  IdentifyFile ${DATA_DIR}/${GUEST_NAME}
+  IdentityFile ${DATA_DIR}/${GUEST_NAME}
 EOF
 
   cat "${DATA_DIR}/guest_info"
