@@ -17,7 +17,6 @@ declare -r CPU="${CPU:-max}"
 declare -r ACCEL="${ACCEL:-hvf}"
 declare -ir CORES="${CORES:-4}"
 declare -ir MEMORY="$((CORES * 2048))"
-declare -ir SSH_ACCESS_PORT="${SSH_ACCESS_PORT:-2222}"
 
 # git details
 read -r GIT_USER < <(git config --global --get user.name); readonly GIT_USER
@@ -26,6 +25,29 @@ read -r GIT_MAIL < <(git config --global --get user.email); readonly GIT_MAIL
 # dev environment details
 declare -r GO_VERSION="go1.20.3"
 
+
+
+
+find_open_port() {
+  declare -ir start_port=2222
+  declare -ir max_port=3333
+
+  for ((i=start_port;i<max_port;i++)); do
+    if grep -rnq -e "Port ${i}" $HOME/.ssh/config; then
+      continue
+    fi
+
+    if netstat -taln | grep "${i}"; then
+      continue
+    fi
+
+    echo "${i}"
+    return
+  done
+
+  echo "No available port found"
+  exit 1
+}
 
 
 
@@ -256,6 +278,16 @@ main() {
   else
     declare -rg GIT_TOKEN="${2:?"Missing required argument"}"
   fi
+
+  if read -r ssh_port < <(grep "Port:" "${DATA_DIR}/guest_info" 2>/dev/null | awk '{print $2}'); then
+    declare -irg SSH_ACCESS_PORT="${ssh_port}"
+  elif read -r ssh_port < <(find_open_port 2>/dev/null); then
+    declare -irg SSH_ACCESS_PORT="${ssh_port}"
+  else
+    echo "Failed to find an open port to use for ssh access"
+    exit 1
+  fi
+
 
   mkdir -p "${DATA_DIR}"
   mkdir -p "${SCRIPT_DIR}"
