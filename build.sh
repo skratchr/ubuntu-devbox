@@ -28,7 +28,7 @@ declare -r GO_VERSION="go1.20.3"
 
 
 
-find_open_port() {
+find_ssh_open_port() {
   declare -ir start_port=2222
   declare -ir max_port=3333
 
@@ -211,6 +211,13 @@ fi
 
 declare -a args=("\${@}")
 
+# If nested kvm is required, the follow paramters can be switched out/added to
+# the arguments at the cost of performece:
+#
+#   -cpu qemu64
+#   -machine type=q35,tcg
+#   -enable-kvm
+
 args+=("-cpu" "${CPU}")
 args+=("-smp" "${CORES}")
 args+=("-m" "${MEMORY}")
@@ -287,7 +294,7 @@ main() {
 
   if read -r ssh_port < <(grep "Port:" "${DATA_DIR}/guest_info" 2>/dev/null | awk '{print $2}'); then
     declare -irg SSH_ACCESS_PORT="${ssh_port}"
-  elif read -r ssh_port < <(find_open_port 2>/dev/null); then
+  elif read -r ssh_port < <(find_open_ssh_port 2>/dev/null); then
     declare -irg SSH_ACCESS_PORT="${ssh_port}"
   else
     echo "Failed to find an open port to use for ssh access"
